@@ -271,31 +271,23 @@ class Um():
             bin_instructions.append(i)
         return bin_instructions
 
-    # FIXME: combine these two
-    @staticmethod
-    def int2b32(i):
-        return list('{0:032b}'.format(i))
-
-    @staticmethod
-    def int2b3(i):
-        return list('{0:03b}'.format(i))
-
     @staticmethod
     def encodeInstruction(operator, a, b, c):
-        register = [0,] * 32
-        register[0:4] = list('{0:04b}'.format(operator))
-        register[23:26] = Um.int2b3(a)
-        register[26:29] = Um.int2b3(b)
-        register[29:] = Um.int2b3(c)
-        return Um.b2int(register)
+        register = (
+           '{0:04b}'.format(operator) +
+           '0'*19 +
+           '{0:03b}'.format(a) +
+           '{0:03b}'.format(b) +
+           '{0:03b}'.format(c))
+        return int(register, 2)
 
     @staticmethod
     def encodeValue(operator, reg, val):
-        register = [0,] * 32
-        register[0:4] = list('{0:04b}'.format(operator))
-        register[4:7] = Um.int2b3(reg)
-        register[7:] = list('{0:025b}'.format(val))
-        return Um.b2int(register)
+        register = (
+           '{0:04b}'.format(operator) +
+           '{0:03b}'.format(reg) +
+           '{0:025b}'.format(val))
+        return int(register, 2)
 
     def dumpRegs(self):
         """Display non-zero registers"""
