@@ -1,10 +1,12 @@
 #!/usr/bin/env python
-""" Universal Machine Simulator """
+""" Universal Machine Simulator. See um-spec.txt """
+# Note: running with pypy gives something like over a 15 times speedup.
 from __future__ import print_function
 
 import os, sys, struct
 
-TWO_32 = 1 << 32
+WORDSIZE = 32
+TWO_32 = 1 << WORDSIZE
 
 OP2NAME = [''] * 14
 for op, name in enumerate(
@@ -31,7 +33,9 @@ class Um():
         self.finger = 0
         self.nextAlloc = 1 # zero taken above
 
-        # Machine has general-purpose registers
+        # Eight distinct general-purpose registers, capable of holding one
+        # platter each.
+        # All registers shall be initialized with platters of value '0'.
         self.gpr = [0,] * 8
         self.loadScroll(code)
         self.debug = debug
@@ -43,6 +47,7 @@ class Um():
         for c in code:
             self.platter[0].append(c)
 
+    # Not needed for problem but useful in developing and debugging
     @staticmethod
     def disassemble(instructions, offset=0):
         for i, inst in enumerate(instructions[offset:]):
@@ -69,15 +74,50 @@ class Um():
 
     @staticmethod
     def bits(w, start, l):
-        """Return an int field of w that starts at w and goes for length l"""
-        return w >> (31 - start - l + 1) & ((1 << l) - 1)
-
-    @staticmethod
-    def b2int(b):
-        return reduce(lambda x, y: (int(x) << 1 | int(y)), b)
+        """Return an int field of w that starts at 'start' and goes for length 'l'"""
+        return w >> (WORDSIZE - start - l) & ((1 << l) - 1)
 
     @staticmethod
     def decodeInstruction(i):
+        """Each Standard Operator performs an errand using three registers,
+        called A, B, and C. Each register is described by a three bit
+        segment of the instruction platter. The register C is described by
+        the three least meaningful bits, the register B by the three next
+        more meaningful than those, and the register A by the three next
+        more meaningful than those.
+
+                                      A     C
+                                      |     |
+                                      vvv   vvv
+              .--------------------------------.
+              |VUTSRQPONMLKJIHGFEDCBA9876543210|
+              `--------------------------------'
+               ^^^^                      ^^^
+               |                         |
+               operator number           B
+
+              Figure 2. Standard Operators
+
+        One special operator does not describe registers in the same way.
+        Instead the three bits immediately less significant than the four
+        instruction indicator bits describe a single register A. The
+        remainder twenty five bits indicate a value, which is loaded
+        forthwith into the register A.
+
+                   A
+                   |
+                   vvv
+              .--------------------------------.
+              |VUTSRQPONMLKJIHGFEDCBA9876543210|
+              `--------------------------------'
+               ^^^^   ^^^^^^^^^^^^^^^^^^^^^^^^^
+               |      |
+               |      value
+               |
+               operator number
+
+               Figure 3. Special Operators
+        """
         operator = Um.bits(i, 0, 4)
         if operator == NAME2OP['LOAD']:
             a = Um.bits(i, 4, 3)
@@ -102,6 +142,11 @@ class Um():
             pass
 
     def spinCycle(self):
+        """In each cycle of the Universal Machine, an Operator shall be
+        retrieved from the platter that is indicated by the execution
+        finger. ... Before this operator is discharged, the execution
+        finger shall be advanced to the next platter, if any.
+        """
         assert self.finger < len(self.platter[0]), "Spun off end of program"
         i = self.platter[0][self.finger]
         operator, a, b, c = Um.decodeInstruction(i)
