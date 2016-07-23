@@ -157,39 +157,42 @@ class Um():
         OPCODE2FN[operator](self, a, b, c)
         return OP2NAME[operator]
 
-    def register(op, fn):
+    def register(op):
         """Add fn to OPCODE2FN indexed by its opcode"""
-        OPCODE2FN[op] = fn
+        def _decorator(fn):
+            OPCODE2FN[op] = fn
+            return fn
+        return _decorator
 
+    @register(0)
     def conditionalMove(self, a, b, c):
         if self.gpr[c] != 0: self.gpr[a] = self.gpr[b]
-    register(0, conditionalMove)
 
+    @register(1)
     def arrayIndex(self, a, b, c):
         """The register A receives the value stored at offset
         in register C in the array identified by B."""
         self.gpr[a] = self.platter[self.gpr[b]][self.gpr[c]]
-    register(1, arrayIndex)
 
+    @register(2)
     def arrayAmendment(self, a, b, c):
         """The array identified by A is amended at the offset
         in register B to store the value in register C."""
         self.platter[self.gpr[a]][self.gpr[b]] = self.gpr[c]
 
-    register(2, arrayAmendment)
-
+    @register(3)
     def addition(self, a, b, c):
         """The register A receives the value in register B plus
         the value in register C, modulo 2^32."""
         self.gpr[a] = (self.gpr[b] + self.gpr[c]) % TWO_32
-    register(3, addition)
 
+    @register(4)
     def multiplication(self, a, b, c):
         """The register A receives the value in register B times
         the value in register C, modulo 2^32."""
         self.gpr[a] = (self.gpr[b] * self.gpr[c]) % TWO_32
-    register(4, multiplication)
 
+    @register(5)
     def division(self, a, b, c):
         """The register A receives the value in register B
         divided by the value in register C, if any, where
@@ -198,8 +201,8 @@ class Um():
         # Note vaguess around rounding.
         # We'll let Python's ZeroDevice exception propagate here.
         self.gpr[a] = (self.gpr[b] // self.gpr[c]) % TWO_32
-    register(5, division)
 
+    @register(6)
     def notAnd(self, a, b, c):
         """Each bit in the register A receives the 1 bit if
         either register B or register C has a 0 bit in that
@@ -207,13 +210,13 @@ class Um():
         the 0 bit.
         """
         self.gpr[a] = (~(self.gpr[b] & self.gpr[c])) % TWO_32
-    register(6, notAnd)
 
+    @register(7)
     def halt(self, _dummy1, _dumm2, _dummy3):
         """universal machine stops computation."""
         print("universal machine stops computation.")
-    register(7, halt)
 
+    @register(8)
     def allocation(self, a, b, c):
         """
          A new array is created with a capacity of platters
@@ -227,16 +230,15 @@ class Um():
         self.gpr[b] = self.nextAlloc
         self.nextAlloc += 1
 
-    register(8, allocation)
-
+    @register(9)
     def abandonment(self, a, b, c):
         """
         The array identified by the register C is abandoned.
         Future allocations may then reuse that identifier.
         """
         del self.platter[self.gpr[c]]
-    register(9, abandonment)
 
+    @register(10)
     def output(self, a, b, c):
         """
         The value in the register C is displayed on the console
@@ -245,8 +247,7 @@ class Um():
         """
         print(chr(self.gpr[c]), end='')
 
-    register(10, output)
-
+    @register(11)
     def input(self, a, b, c):
         """
         The universal machine waits for input on the console.
@@ -270,8 +271,7 @@ class Um():
             self.gpr[c] = ord(ch)
             break
 
-    register(11, input)
-
+    @register(12)
     def loadProgram(self, a, b, c):
         """
         The array identified by the B register is duplicated
@@ -286,20 +286,17 @@ class Um():
         loading, and shall be handled with the utmost
         velocity.
         """
-
         # Optimization: don't need to dup onto yourself
         if self.gpr[b] != 0:
             assert self.gpr[b] in self.platter
             self.platter[0] = list(self.platter[self.gpr[b]])
         self.finger = self.gpr[c]
 
-    register(12, loadProgram)
-
+    @register(13)
     def orthography(self, a, val, _dummy):
         """The value indicated is loaded into the register A
            forthwith."""
         self.gpr[a] = val
-    register(13, orthography)
 
     @staticmethod
     def assemble(instructions):
