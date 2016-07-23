@@ -5,12 +5,14 @@ from __future__ import print_function
 
 import os, sys, struct
 
+PYTHON3 = (sys.version_info >= (3, 0))
+
 WORDSIZE = 32
 TWO_32 = 1 << WORDSIZE
 
 OP2NAME = [''] * 14
 for op, name in enumerate(
-    """MOVEIF INDEX ASTORE ADD MULT DIV NAND HALT ALLOC
+    """MOVEIF INDEX STORE ADD MULT DIV NAND HALT ALLOC
     FREE OUTPUT INPUT JUMP LOAD""".split()):
     OP2NAME[op] = name
 
@@ -198,8 +200,8 @@ class Um():
         divided by the value in register C, if any, where
         each quantity is treated treated as an unsigned 32
         bit number."""
-        # Note vaguess around rounding.
-        # We'll let Python's ZeroDevice exception propagate here.
+        # Note vagueness around rounding.
+        # We'll let Python's ZeroDivide exception propagate here.
         self.gpr[a] = (self.gpr[b] // self.gpr[c]) % TWO_32
 
     @register(6)
@@ -262,7 +264,7 @@ class Um():
                 ch = getch()
                 if ch == '\r':
                     ch = '\n'
-                elif ord(ch) == 04:  # Ctrl-D
+                elif ord(ch) == 4:  # Ctrl-D
                     raise EOFError
             except EOFError:
                 self.gpr[c] = TWO_32 - 1
@@ -376,7 +378,7 @@ def getcode(path):
               size)
     intSize = size // 4
     fmt = "!%uI" % intSize
-    with open(path, 'r') as fp:
+    with open(path, 'rb') as fp:
         ints = fp.read(intSize * 4)
         code = struct.unpack(fmt, ints)
     print("code %s loaded" % path)
